@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Backtest Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=EB+Garamond:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box }
+    body { margin:0; font-family: 'EB Garamond', Garamond, serif; background:#0b1220; color:#e6e8ff }
+    .wrap { max-width: 1200px; margin: 0 auto; padding: 20px }
+    .row { display:flex; gap:16px; flex-wrap:wrap; align-items: flex-start }
+    .card { background: rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); border-radius:12px; padding:16px; flex:1; overflow: hidden }
+    label { display:block; font-size:16px; font-weight:600; margin-bottom:8px }
+    input, select, button { padding:12px 14px; border-radius:10px; border:1px solid rgba(255,255,255,0.25); background: rgba(0,0,0,0.2); color:#e6e8ff; font-size:16px; outline:none; transition: box-shadow .2s ease, border-color .2s ease, transform .05s ease; font-family: 'EB Garamond', Garamond, serif }
+    input::placeholder { font-family: inherit }
+    select option { font-family: inherit }
+    input:focus, select:focus { border-color:#7c6cff; box-shadow: 0 0 0 3px rgba(124,108,255,0.25); transform: scale(1.01) }
+    .grid { display:grid; grid-template-columns: repeat(3, minmax(160px, 1fr)); gap:12px }
+    .chart { height: 420px; width: 100%; margin: 0; position: relative }
+    .subchart { height: 220px; width: 100%; margin: 0; position: relative }
+    .status { min-height: 24px; font-size: 14px; color: #a9accb; margin-top:8px }
+  </style>
+  <script src="https://unpkg.com/lightweight-charts@4.0.1/dist/lightweight-charts.standalone.production.js"></script>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Backtest Dashboard</h1>
+    <div class="card">
+      <div class="grid">
+        <div>
+          <label>Symbol</label>
+          <input id="symbol" value="AAPL" />
+        </div>
+        <div>
+          <label>Start</label>
+          <input id="start" value="2020-01-01" />
+        </div>
+        <div>
+          <label>End</label>
+          <input id="end" value="2021-01-01" />
+        </div>
+        <div>
+          <label>Strategy</label>
+          <select id="strategy">
+            <option value="sma">SMA crossover</option>
+            <option value="ema">EMA crossover</option>
+            <option value="macd">MACD signal</option>
+            <option value="rsi">RSI threshold</option>
+            <option value="bbands">Bollinger Bands breakout</option>
+            <option value="donchian">Donchian breakout</option>
+          </select>
+        </div>
+        <div>
+          <label>Short</label>
+          <input id="short" type="number" value="10" />
+        </div>
+        <div>
+          <label>Long</label>
+          <input id="long" type="number" value="20" />
+        </div>
+        <div>
+          <label>RSI Low</label>
+          <input id="rsi_low" type="number" value="30" />
+        </div>
+        <div>
+          <label>RSI High</label>
+          <input id="rsi_high" type="number" value="70" />
+        </div>
+        <div>
+          <label>BB Window</label>
+          <input id="bb_window" type="number" value="20" />
+        </div>
+        <div>
+          <label>BB Mult</label>
+          <input id="bb_mult" type="number" step="0.5" value="2" />
+        </div>
+        <div>
+          <label>Donchian Window</label>
+          <input id="donchian_window" type="number" value="20" />
+        </div>
+      </div>
+      <div style="margin-top:12px; display:flex; gap:12px">
+        <button id="run">Run Backtest</button>
+        <div id="status" class="status"></div>
+      </div>
+    </div>
+
+    <div class="row" style="margin-top:16px">
+      <div class="card" style="flex:2">
+        <h3 style="margin:0 0 8px 0">Overview</h3>
+        <div id="tvchart" class="chart"></div>
+      </div>
+      <div class="card" style="flex:1">
+        <h3 style="margin:0 0 8px 0">Metrics</h3>
+        <div id="equityChart" class="subchart" style="margin-bottom:12px"></div>
+        <div class="grid" style="grid-template-columns: repeat(2, minmax(120px, 1fr)); gap:10px">
+          <div class="card" style="padding:10px"><div style="font-size:12px;color:#a9accb">Annual Return</div><div id="m_annual" style="font-size:18px">-</div></div>
+          <div class="card" style="padding:10px"><div style="font-size:12px;color:#a9accb">Sharpe</div><div id="m_sharpe" style="font-size:18px">-</div></div>
+          <div class="card" style="padding:10px"><div style="font-size:12px;color:#a9accb">Volatility</div><div id="m_vol" style="font-size:18px">-</div></div>
+          <div class="card" style="padding:10px"><div style="font-size:12px;color:#a9accb">Max Drawdown</div><div id="m_mdd" style="font-size:18px">-</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:16px">
+      <h3 style="margin:0 0 8px 0">Backtest Candles & Signals</h3>
+      <div id="ohlcChart" class="chart"></div>
+    </div>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
