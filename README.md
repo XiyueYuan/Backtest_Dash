@@ -2,6 +2,13 @@
 
 A lightweight quantitative backtesting and visualization tool with a FastAPI + Pydantic backend and a vanilla JavaScript frontend. It supports parameterized strategies, indicator overlays, buy/sell markers, and interactive zooming.
 
+## Overview
+<p align="center">
+<img src= 'assets/output.gif'
+width=""/>
+</p>
+
+
 ## Features
 - Backtest engine generating equity curve and buy/sell markers
 - Strategies: SMA/EMA, MACD, RSI, Bollinger Bands, Donchian
@@ -31,8 +38,6 @@ Open: `http://127.0.0.1:8000/`
   - `Overview`: quick candlestick preview
   - `Metrics` + `Equity`: KPIs and equity curve
   - `Backtest Candles & Signals`: candlesticks + buy/sell markers + strategy overlays
-- Zoom & scroll
-  - `+ / −` at top-right of each chart; mouse wheel and drag supported
 
 ## API
 - `GET /ohlcv?symbol=...&start=YYYY-MM-DD&end=YYYY-MM-DD` — daily OHLCV
