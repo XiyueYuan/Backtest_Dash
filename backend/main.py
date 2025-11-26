@@ -36,9 +36,20 @@ def sanitize_dates(start: str, end: str):
         return None, None, JSONResponse(status_code=400, content={'error': 'End date must be after start date'})
     return s_dt.strftime('%Y-%m-%d'), e_dt.strftime('%Y-%m-%d'), None
 
+def normalize_symbol(symbol: str) -> str:
+    t = str(symbol).strip().upper()
+    aliases = {
+        'BTC': 'BTC-USD',
+        'ETH': 'ETH-USD',
+        'DOGE': 'DOGE-USD',
+        'SOL': 'SOL-USD',
+        'ADA': 'ADA-USD',
+    }
+    return aliases.get(t, t)
+
 @app.get('/ohlcv')
 def ohlcv(symbol: str, start: str, end: str):
-    symbol = str(symbol).strip().upper()
+    symbol = normalize_symbol(symbol)
     start_s, end_s, err = sanitize_dates(start, end)
     if err: return err
     try:
@@ -53,7 +64,7 @@ def ohlcv(symbol: str, start: str, end: str):
 
 @app.get('/backtest')
 def backtest(symbol: str, start: str, end: str, strategy: str = 'sma', short: int = 10, long: int = 20, rsi_low: int = 30, rsi_high: int = 70, bb_window: int = 20, bb_mult: float = 2.0, donchian_window: int = 20):
-    symbol = str(symbol).strip().upper()
+    symbol = normalize_symbol(symbol)
     start_s, end_s, err = sanitize_dates(start, end)
     if err: return err
     try:
@@ -85,5 +96,6 @@ def backtest(symbol: str, start: str, end: str, strategy: str = 'sma', short: in
         'equity_curve': [float(x) for x in result['equity_curve']],
         'buy_signals': [(pd.Timestamp(d).isoformat(), float(p)) for d, p in result['buy_signals']],
         'sell_signals': [(pd.Timestamp(d).isoformat(), float(p)) for d, p in result['sell_signals']],
+        'signal': [float(x) for x in result.get('signal', [])],
     }
     return {'curve': curve, 'metrics': metrics}

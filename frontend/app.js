@@ -24,7 +24,7 @@ function mkChart(containerId) {
     return null
   }
   const rect = el.getBoundingClientRect()
-  const chart = LightweightCharts.createChart(el, { width: Math.floor(rect.width), height: Math.floor(rect.height), layout: { background: { type: 'solid', color: '#0b1220' }, textColor: '#e6e8ff' }, grid: { vertLines: { color: '#1c2333' }, horzLines: { color: '#1c2333' } } })
+  const chart = LightweightCharts.createChart(el, { width: Math.floor(rect.width), height: Math.floor(rect.height), layout: { background: { type: 'solid', color: '#0b1220' }, textColor: '#e6e8ff' }, grid: { vertLines: { color: '#1c2333' }, horzLines: { color: '#1c2333' } }, handleScroll: { mouseWheel: true, pressedMouseMove: true, horzTouchDrag: true }, handleScale: { axisPressedMouseMove: true, mouseWheel: true, pinch: true } })
   const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(entries => {
     for (const entry of entries) {
       const w = Math.floor(entry.contentRect.width)
@@ -110,6 +110,122 @@ async function run() {
   bt.curve.sell_signals.forEach(([t, p]) => { markers.push({ time: isoToSec(t), position: 'aboveBar', color: '#ef5350', shape: 'arrowDown', text: 'SELL' }) })
   if (candle && typeof candle.setMarkers === 'function') candle.setMarkers(markers)
 
+  const closes = ohlc.map(d => d.close)
+  const highs = ohlc.map(d => d.high)
+  const lows = ohlc.map(d => d.low)
+  const times = ohlc.map(d => d.time)
+  const wMean = (arr, w) => {
+    const out = new Array(arr.length).fill(null)
+    let sum = 0
+    for (let i = 0; i < arr.length; i++) {
+      sum += arr[i]
+      if (i >= w) sum -= arr[i - w]
+      if (i >= w - 1) out[i] = sum / w
+    }
+    return out
+  }
+  const wStd = (arr, w, mids) => {
+    const out = new Array(arr.length).fill(null)
+    for (let i = w - 1; i < arr.length; i++) {
+      let s = 0
+      for (let j = i - w + 1; j <= i; j++) s += Math.pow(arr[j] - mids[i], 2)
+      out[i] = Math.sqrt(s / w)
+    }
+    return out
+  }
+  const mkData = (arr) => arr.map((v, i) => (v == null ? null : { time: times[i], value: v }))
+  const setLine = (chart, color, scale, data) => {
+    if (!chart || typeof chart.addLineSeries !== 'function') return
+    const s = chart.addLineSeries({ color, lineWidth: 2, priceScaleId: scale })
+    s.setData(data.filter(Boolean))
+  }
+  if (strategy === 'sma') {
+    const s1 = wMean(closes, short)
+    const s2 = wMean(closes, long)
+    setLine(c1, '#00d4ff', 'right', mkData(s1))
+    setLine(c1, '#7c6cff', 'right', mkData(s2))
+  } else if (strategy === 'ema') {
+    const emaCalc = (arr, w) => {
+      const out = new Array(arr.length).fill(null)
+      const k = 2 / (w + 1)
+      let prev = null
+      for (let i = 0; i < arr.length; i++) {
+        const x = arr[i]
+        if (prev == null) prev = x
+        prev = x * k + prev * (1 - k)
+        if (i >= w - 1) out[i] = prev
+      }
+      return out
+    }
+    const e1 = emaCalc(closes, short)
+    const e2 = emaCalc(closes, long)
+    setLine(c1, '#00d4ff', 'right', mkData(e1))
+    setLine(c1, '#7c6cff', 'right', mkData(e2))
+  } else if (strategy === 'bbands') {
+    const mid = wMean(closes, bb_window)
+    const std = wStd(closes, bb_window, mid)
+    const up = mid.map((m, i) => (m == null || std[i] == null ? null : m + bb_mult * std[i]))
+    const lo = mid.map((m, i) => (m == null || std[i] == null ? null : m - bb_mult * std[i]))
+    setLine(c1, '#ffd166', 'right', mkData(mid))
+    setLine(c1, '#26a69a', 'right', mkData(up))
+    setLine(c1, '#ef5350', 'right', mkData(lo))
+  } else if (strategy === 'donchian') {
+    const window = donchian_window
+    const up = new Array(highs.length).fill(null)
+    const lo = new Array(lows.length).fill(null)
+    for (let i = window - 1; i < highs.length; i++) {
+      let m = -Infinity, n = Infinity
+      for (let j = i - window + 1; j <= i; j++) { m = Math.max(m, highs[j]); n = Math.min(n, lows[j]) }
+      up[i] = m; lo[i] = n
+    }
+    setLine(c1, '#26a69a', 'right', mkData(up))
+    setLine(c1, '#ef5350', 'right', mkData(lo))
+  } else if (strategy === 'rsi') {
+    const w = Math.max(2, rsi_low)
+    const delta = closes.map((x, i) => (i === 0 ? 0 : x - closes[i - 1]))
+    const gain = delta.map(d => (d > 0 ? d : 0))
+    const loss = delta.map(d => (d < 0 ? -d : 0))
+    const avg = (arr, w) => wMean(arr, w)
+    const ag = avg(gain, w)
+    const al = avg(loss, w)
+    const rs = ag.map((g, i) => (g == null || al[i] == null ? null : g / al[i]))
+    const rsi = rs.map(r => (r == null ? null : 100 - 100 / (1 + r)))
+    setLine(c1, '#ffd166', 'left', mkData(rsi))
+  } else if (strategy === 'macd') {
+    const emaCalc = (arr, w) => {
+      const out = new Array(arr.length).fill(null)
+      const k = 2 / (w + 1)
+      let prev = null
+      for (let i = 0; i < arr.length; i++) {
+        const x = arr[i]
+        if (prev == null) prev = x
+        prev = x * k + prev * (1 - k)
+        if (i >= w - 1) out[i] = prev
+      }
+      return out
+    }
+    const fast = emaCalc(closes, 12)
+    const slow = emaCalc(closes, 26)
+    const diff = fast.map((f, i) => (f == null || slow[i] == null ? null : f - slow[i]))
+    const signalArr = (() => {
+      const w = 9
+      const out = new Array(diff.length).fill(null)
+      const k = 2 / (w + 1)
+      let prev = null
+      for (let i = 0; i < diff.length; i++) {
+        const x = diff[i]
+        if (x == null) continue
+        if (prev == null) prev = x
+        prev = x * k + prev * (1 - k)
+        if (i >= w - 1) out[i] = prev
+      }
+      return out
+    })()
+    setLine(c1, '#00d4ff', 'left', mkData(diff))
+    setLine(c1, '#7c6cff', 'left', mkData(signalArr))
+  }
+
+
   const c2 = mkChart('equityChart')
   const line = c2 && typeof c2.addLineSeries === 'function' ? c2.addLineSeries({ color: '#7c6cff' }) : null
   const eq = bt.curve.equity_curve || []
@@ -119,12 +235,15 @@ async function run() {
   }
 
   const m = bt.metrics || {}
-  const pct = (x) => (typeof x === 'number' ? (x*100).toFixed(2)+'%' : x)
-  const num = (x, d=2) => (typeof x === 'number' ? x.toFixed(d) : x)
+  const pct = (x) => (typeof x === 'number' ? (x*100).toFixed(3)+'%' : x)
+  const num = (x, d=3) => (typeof x === 'number' ? x.toFixed(d) : x)
   document.getElementById('m_annual').textContent = pct(m.annual_return)
   document.getElementById('m_sharpe').textContent = num(m.sharpe_ratio)
   document.getElementById('m_vol').textContent = pct(m.volatility)
   document.getElementById('m_mdd').textContent = pct(m.max_drawdown)
+  attachZoom(overview, 'zoom_tv_in', 'zoom_tv_out')
+  attachZoom(c1, 'zoom_ohlc_in', 'zoom_ohlc_out')
+  attachZoom(c2, 'zoom_eq_in', 'zoom_eq_out')
 }
 
 document.getElementById('run').addEventListener('click', run)
@@ -132,3 +251,21 @@ document.addEventListener('DOMContentLoaded', () => {
   // Auto-run with defaults
   try { run() } catch (e) { statusEl.textContent = String(e.message || e) }
 })
+
+function zoom(chart, factor) {
+  if (!chart || typeof chart.timeScale !== 'function') return
+  const ts = chart.timeScale()
+  if (!ts || typeof ts.getVisibleLogicalRange !== 'function' || typeof ts.setVisibleLogicalRange !== 'function') return
+  const r = ts.getVisibleLogicalRange()
+  if (!r || typeof r.from !== 'number' || typeof r.to !== 'number') return
+  const c = (r.from + r.to) / 2
+  const len = (r.to - r.from) * factor
+  ts.setVisibleLogicalRange({ from: c - len / 2, to: c + len / 2 })
+}
+
+function attachZoom(chart, inId, outId) {
+  const zi = document.getElementById(inId)
+  const zo = document.getElementById(outId)
+  if (zi) zi.addEventListener('click', () => zoom(chart, 0.8))
+  if (zo) zo.addEventListener('click', () => zoom(chart, 1.25))
+}

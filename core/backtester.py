@@ -32,4 +32,10 @@ class Backtester:
             position = 0.0
             sell_signals.append((df.index[-1], final_price))
             equity_curve[-1] = cash
-        return {'dates': df.index.tolist(), 'equity_curve': equity_curve, 'buy_signals': buy_signals, 'sell_signals': sell_signals}
+        return {
+            'dates': df.index.tolist(),
+            'equity_curve': equity_curve,
+            'buy_signals': buy_signals,
+            'sell_signals': sell_signals,
+            'signal': df['signal'].astype(float).tolist(),
+        }
