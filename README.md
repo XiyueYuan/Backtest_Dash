@@ -11,7 +11,7 @@ width=""/>
 
 ## Features
 - Backtest engine generating equity curve and buy/sell markers
-- Strategies: SMA/EMA, MACD, RSI, Bollinger Bands, Donchian
+- Strategies: SMA/EMA, MACD, RSI, Bollinger Bands, Donchian (Keep updating)
 - Indicator overlays: draw continuous curves (SMA/EMA/BBands/RSI/MACD) on the candlestick chart
 
 
@@ -43,10 +43,6 @@ Open: `http://127.0.0.1:8000/`
 - `GET /ohlcv?symbol=...&start=YYYY-MM-DD&end=YYYY-MM-DD` — daily OHLCV
 - `GET /backtest?...` — returns `curve` (`dates`, `equity_curve`, `buy_signals`, `sell_signals`, `signal`) and `metrics`
   - `strategy`: `sma`, `ema`, `macd`, `rsi`, `bbands`, `donchian`
-
-## FAQ
-- Crypto symbols: use `BTC-USD`, `ETH-USD`, etc., or input `BTC`/`ETH` and the backend maps automatically
-- Date format: `YYYY-MM-DD`; `end < start` yields a validation error
 
 ## Tech Stack
 - Backend: `FastAPI`, `Pydantic`, `Uvicorn`
