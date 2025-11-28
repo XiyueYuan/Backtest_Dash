@@ -10,6 +10,10 @@ const bbWinEl = document.getElementById('bb_window')
 const bbMultEl = document.getElementById('bb_mult')
 const donEl = document.getElementById('donchian_window')
 const statusEl = document.getElementById('status')
+const feeRateEl = document.getElementById('fee_rate')
+const slippageEl = document.getElementById('slippage')
+const maxPositionPctEl = document.getElementById('max_position_pct')
+const initialCapitalEl = document.getElementById('initial_capital')
 
 function normalizeDate(s) {
   const t = String(s || '').trim().replace(/\s+/g, '')
@@ -72,12 +76,19 @@ async function run() {
   const bb_window = parseInt(bbWinEl.value || '20', 10)
   const bb_mult = parseFloat(bbMultEl.value || '2')
   const donchian_window = parseInt(donEl.value || '20', 10)
+  const fee_rate = parseFloat(feeRateEl.value || '0')
+  const slippage = parseFloat(slippageEl.value || '0.002')
+  const max_position_pct = parseFloat(maxPositionPctEl.value || '1')
+  const initial_capital = parseFloat(initialCapitalEl.value || '10000')
+
   statusEl.textContent = 'Running...'
 
   let ohlc, bt
   try {
     ohlc = await fetchJSON(`/ohlcv?symbol=${encodeURIComponent(symbol)}&start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`)
-    bt = await fetchJSON(`/backtest?symbol=${encodeURIComponent(symbol)}&start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}&strategy=${encodeURIComponent(strategy)}&short=${short}&long=${long}&rsi_low=${rsi_low}&rsi_high=${rsi_high}&bb_window=${bb_window}&bb_mult=${bb_mult}&donchian_window=${donchian_window}`)
+    bt = await fetchJSON(
+      `/backtest?symbol=${encodeURIComponent(symbol)}&start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}&strategy=${encodeURIComponent(strategy)}&short=${short}&long=${long}&rsi_low=${rsi_low}&rsi_high=${rsi_high}&bb_window=${bb_window}&bb_mult=${bb_mult}&donchian_window=${donchian_window}` + 
+      `&fee_rate=${fee_rate}&slippage=${slippage}&max_position_pct=${max_position_pct}&initial_capital=${initial_capital}`)
   } catch (e) {
     statusEl.textContent = String(e.message || e)
     return
@@ -231,12 +242,17 @@ async function run() {
   const eq = bt.curve.equity_curve || []
   const dates = (bt.curve.dates || []).map(d => isoToSec(d))
   if (line && eq.length && dates.length) {
-    line.setData(eq.map((v, i) => ({ time: dates[i], value: v })))
+    const shift = (typeof initial_capital === 'number' && typeof max_position_pct === 'number') 
+      ? (initial_capital - initial_capital * Math.max(0, Math.min(1, max_position_pct))) 
+      : 0
+    line.setData(eq.map((v, i) => ({ time: dates[i], value: (typeof v === 'number' ? v - shift : v) })))
   }
 
   const m = bt.metrics || {}
   const pct = (x) => (typeof x === 'number' ? (x*100).toFixed(3)+'%' : x)
   const num = (x, d=3) => (typeof x === 'number' ? x.toFixed(d) : x)
+  const amt = (x) => (typeof x === 'number' ? x.toFixed(0) : x)
+  if (document.getElementById('m_invested')) document.getElementById('m_invested').textContent = amt(m.invested_initial)
   document.getElementById('m_annual').textContent = pct(m.annual_return)
   document.getElementById('m_sharpe').textContent = num(m.sharpe_ratio)
   document.getElementById('m_vol').textContent = pct(m.volatility)

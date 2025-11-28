@@ -18,8 +18,10 @@ width=""/>
 ## Project Structure
 - `backend/main.py`: FastAPI service, serves static frontend, routes and validation
 - `core/`
+  - `strategies/`
   - `data_loader.py`: `yfinance` download with fallback
   - `backtester.py`: equity curve, buy/sell markers, signal output
+  - `indicators.py`: sma, ema, rsi, macd, bbands, donchian, etc.
   - `metrics.py`: annual return, volatility, drawdown, Sharpe
 - `frontend/index.html`: page and styles
 - `frontend/app.js`: fetching, chart rendering, interactions
@@ -33,7 +35,8 @@ uvicorn main:app --host 127.0.0.1 --port 8000 --reload
 Open: `http://127.0.0.1:8000/`
 
 ## Usage
-- Fill `Symbol`, `Start`, `End`, `Strategy` and params, then click “Run Backtest”
+- High level of customization 
+- Fill `Symbol`, `Start`, `End`, `Strategy`, `Fee Rate`, `Initial Investment` and params, then click “Run Backtest”
 - Charts
   - `Overview`: quick candlestick preview
   - `Metrics` + `Equity`: KPIs and equity curve

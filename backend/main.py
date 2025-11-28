@@ -63,10 +63,32 @@ def ohlcv(symbol: str, start: str, end: str):
         return JSONResponse(status_code=400, content={'error': str(e)})
 
 @app.get('/backtest')
-def backtest(symbol: str, start: str, end: str, strategy: str = 'sma', short: int = 10, long: int = 20, rsi_low: int = 30, rsi_high: int = 70, bb_window: int = 20, bb_mult: float = 2.0, donchian_window: int = 20):
+def backtest(
+    symbol: str, 
+    start: str, 
+    end: str, 
+    strategy: str = 'sma', 
+    short: int = 10, 
+    long: int = 20, 
+    rsi_low: int = 30, 
+    rsi_high: int = 70, 
+    bb_window: int = 20, 
+    bb_mult: float = 2.0, 
+    donchian_window: int = 20,
+    fee_rate: float = 0.0,
+    slippage: float = 0.002,
+    max_position_pct: float = 1.0,
+    initial_capital: float = 10000.0):
+
     symbol = normalize_symbol(symbol)
     start_s, end_s, err = sanitize_dates(start, end)
     if err: return err
+
+    # clamp limiting the rate between 0 and 1, inclusive
+    fee_rate = max(0.0, min(1.0, fee_rate))
+    slippage = max(0.0, min(1.0, slippage))
+    max_position_pct = max(0.0, min(1.0, max_position_pct))
+
     try:
         df = load_price_data(symbol, start_s, end_s)
     except ValueError as e:
@@ -87,9 +109,18 @@ def backtest(symbol: str, start: str, end: str, strategy: str = 'sma', short: in
     else:
         return JSONResponse(status_code=400, content={'error': 'unknown strategy'})
 
-    bt = Backtester(df, signal)
+    bt = Backtester(
+        df, 
+        signal,
+        initial_capital = max(1.0, float(initial_capital)),
+        fee_rate = fee_rate,
+        slippage = slippage,
+        max_position_pct = max_position_pct
+        )
+
     result = bt.run()
     metrics = compute_metrics(result['equity_curve']) if len(result['equity_curve']) >= 2 else {"annual_return":0.0,"sharpe_ratio":0.0,"volatility":0.0,"max_drawdown":0.0}
+    metrics['invested_initial'] = float(result.get('invested_initial', max_position_pct * float(initial_capital)))
 
     curve = {
         'dates': [pd.Timestamp(d).isoformat() for d in result['dates']],
